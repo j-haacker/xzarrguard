@@ -17,6 +17,8 @@ tox
 pre-commit run --all-files
 ```
 
+`pytest` includes coverage output and writes `coverage.xml`.
+
 ## Workflow
 
 - Work on a feature branch.

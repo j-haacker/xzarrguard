@@ -34,4 +34,12 @@ xzarrguard check store.zarr
 xzarrguard create source.zarr target.zarr --no-data no_data.json
 ```
 
+## Coverage
+
+```bash
+pytest
+```
+
+`pytest` prints terminal coverage and writes `coverage.xml`.
+
 Acknowledgement: Initial scaffolding and implementation assistance by OpenAI Codex.
