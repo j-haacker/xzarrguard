@@ -42,4 +42,15 @@ pytest
 
 `pytest` prints terminal coverage and writes `coverage.xml`.
 
+## Release (maintainers)
+
+```bash
+# bump src/xzarrguard/_version.py first
+python -m build
+python -m twine check dist/*
+python -m twine upload dist/*
+```
+
+Use a PyPI API token for upload (for example `TWINE_USERNAME=__token__`).
+
 Acknowledgement: Initial scaffolding and implementation assistance by OpenAI Codex.

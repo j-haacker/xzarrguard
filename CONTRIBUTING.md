@@ -24,3 +24,24 @@ pre-commit run --all-files
 - Work on a feature branch.
 - Keep functions and docs concise.
 - Use focused commits with descriptive messages.
+
+## Release (maintainers)
+
+1. Update `src/xzarrguard/_version.py`.
+2. Build artifacts:
+
+```bash
+python -m build
+```
+
+3. Validate package metadata:
+
+```bash
+python -m twine check dist/*
+```
+
+4. Publish to PyPI:
+
+```bash
+python -m twine upload dist/*
+```

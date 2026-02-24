@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import xarray as xr
 
+from ._version import __version__
 from .create import create_store
 from .integrity import check_store
 from .manifest import load_no_data_chunks
@@ -16,6 +17,7 @@ from .manifest import load_no_data_chunks
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="xzarrguard")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     check = subparsers.add_parser("check", help="Check store completeness")

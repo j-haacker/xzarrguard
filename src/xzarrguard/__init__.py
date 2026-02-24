@@ -1,5 +1,6 @@
 """xzarrguard public API."""
 
+from ._version import __version__
 from .create import create_store
 from .integrity import check_store
 from .manifest import dump_no_data_chunks, load_no_data_chunks
@@ -10,6 +11,7 @@ __all__ = [
     "CreateReport",
     "IntegrityReport",
     "VariableIntegrity",
+    "__version__",
     "check_store",
     "create_store",
     "dump_no_data_chunks",

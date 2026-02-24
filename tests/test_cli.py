@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 import xarray as xr
 
+from xzarrguard._version import __version__
 from xzarrguard.cli import main
 from xzarrguard.create import create_store
 from xzarrguard.layout import chunk_path, scan_array_specs
@@ -47,6 +49,15 @@ def test_cli_check_exit_code_success(tmp_path: Path, capsys) -> None:
 
     assert code == 0
     assert "PASS" in out
+
+
+def test_cli_version_option(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+
+    out = capsys.readouterr().out.strip()
+    assert exc.value.code == 0
+    assert out == f"xzarrguard {__version__}"
 
 
 def test_cli_check_exit_code_failure(tmp_path: Path, capsys) -> None:
