@@ -1,0 +1,21 @@
+site_name: xzarrguard
+site_description: Integrity checks for Zarr v3 stores
+repo_url: https://example.invalid/xzarrguard
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: cyan
+  icon:
+    logo: material/shield-check
+    repo: fontawesome/brands/github
+nav:
+  - Overview: index.md
+  - API: api.md
+  - CLI: cli.md
+  - Manifest: manifest.md
+  - Contributing: contributing.md
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
