@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xzarrguard"
+version = "0.1.0"
+description = "Integrity checks and creation helpers for Zarr v3 stores"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "xzarrguard contributors" }]
+dependencies = [
+  "xarray>=2024.9.0",
+  "zarr>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://example.invalid/xzarrguard"
+Documentation = "https://example.invalid/xzarrguard/docs"
+
+[project.scripts]
+xzarrguard = "xzarrguard.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "mkdocs-material>=9.6.0",
+  "pre-commit>=4.0.0",
+  "pytest>=8.0.0",
+  "ruff>=0.12.0",
+  "tox>=4.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
