@@ -19,6 +19,13 @@ pre-commit run --all-files
 
 `pytest` includes coverage output and writes `coverage.xml`.
 
+## Docs
+
+```bash
+zensical serve
+zensical build --clean
+```
+
 ## Workflow
 
 - Work on a feature branch.

@@ -42,6 +42,13 @@ pytest
 
 `pytest` prints terminal coverage and writes `coverage.xml`.
 
+## Documentation
+
+```bash
+zensical serve
+zensical build --clean
+```
+
 ## Release (maintainers)
 
 ```bash
