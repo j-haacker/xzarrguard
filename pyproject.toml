@@ -30,7 +30,7 @@ dependencies = [
 Homepage = "https://github.com/j-haacker/xzarrguard"
 Repository = "https://github.com/j-haacker/xzarrguard"
 Issues = "https://github.com/j-haacker/xzarrguard/issues"
-Documentation = "https://github.com/j-haacker/xzarrguard#readme"
+Documentation = "https://j-haacker.github.io/xzarrguard/"
 
 [project.scripts]
 xzarrguard = "xzarrguard.cli:main"

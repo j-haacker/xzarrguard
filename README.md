@@ -4,9 +4,14 @@
 
 ## Install
 
-```bash
-pip install .
-```
+**PyPI**: `pip install xzarrguard`  
+**conda**: `conda isntall xzarrguard`  
+**from source**: `pip install .`  
+
+## Install-free CLI usage
+
+**uv**: `uvx  xzarrguard check /path/to/store.zarr`  
+**pixi**: `pixi exec xzarrguard check /path/to/store.zarr`
 
 ## API quickstart
 
@@ -44,10 +49,18 @@ pytest
 
 ## Documentation
 
+https://j-haacker.github.io/xzarrguard/
+
 ```bash
 zensical serve
 zensical build --clean
 ```
+
+## Channels
+
+- PyPI: https://pypi.org/project/xzarrguard/
+- Conda-forge: https://anaconda.org/conda-forge/xzarrguard
+- GitHub: https://github.com/j-haacker/xzarrguard
 
 ## Release (maintainers)
 
@@ -59,6 +72,6 @@ python -m twine upload dist/*
 ```
 
 Use a PyPI API token for upload (for example `TWINE_USERNAME=__token__`).
-For conda-forge, update `recipe/meta.yaml` after the PyPI release (fixed version + PyPI sdist URL + sha256), then submit a recipe/feedstock PR.
+For conda-forge, update `recipe/recipe.yaml` after the PyPI release (fixed version + PyPI sdist URL + sha256), then submit a recipe/feedstock PR.
 
 Acknowledgement: Initial scaffolding and implementation assistance by OpenAI Codex.
