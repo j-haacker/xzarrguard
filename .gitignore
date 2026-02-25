@@ -16,3 +16,11 @@ htmlcov/
 *.pyc
 build_artifacts
 # conda smithy ci-skeleton end
+
+# local feedstock scaffold (kept untracked in source repo)
+.azure-pipelines/
+.circleci/
+.ci_support/
+.scripts/
+azure-pipelines.yml
+conda-forge.yml
