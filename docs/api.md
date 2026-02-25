@@ -13,6 +13,8 @@ if report:
 - Returns `IntegrityReport`.
 - `report.ok` is the condition flag.
 - `bool(report)` maps to `report.ok`.
+- Supports Zarr v3 stores with either per-node `zarr.json` metadata or root
+  `consolidated_metadata`.
 
 ## `create_store`
 

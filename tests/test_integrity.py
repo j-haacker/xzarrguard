@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from pathlib import Path
 
 import numpy as np
@@ -186,3 +187,46 @@ def test_helper_write_source_store(tmp_path: Path) -> None:
     _write_source_store(_dataset(), source)
 
     assert source.exists()
+
+
+def test_check_consolidated_metadata_without_child_metadata_files(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    (store / "var" / "c").mkdir(parents=True)
+    root_payload = {
+        "zarr_format": 3,
+        "node_type": "group",
+        "attributes": {},
+        "consolidated_metadata": {
+            "kind": "inline",
+            "must_understand": False,
+            "metadata": {
+                "var": {
+                    "zarr_format": 3,
+                    "node_type": "array",
+                    "shape": [2],
+                    "chunk_grid": {"name": "regular", "configuration": {"chunk_shape": [1]}},
+                    "chunk_key_encoding": {
+                        "name": "default",
+                        "configuration": {"separator": "/"},
+                    },
+                    "codecs": [],
+                    "data_type": "int32",
+                    "fill_value": 0,
+                    "attributes": {},
+                    "dimension_names": ["x"],
+                    "storage_transformers": [],
+                }
+            },
+        },
+    }
+    (store / "zarr.json").write_text(json.dumps(root_payload), encoding="utf-8")
+    (store / "var" / "c" / "0").write_bytes(b"0")
+    (store / "var" / "c" / "1").write_bytes(b"1")
+
+    report_ok = check_store(store)
+    assert report_ok.ok
+
+    (store / "var" / "c" / "1").unlink()
+    report_fail = check_store(store)
+    assert not report_fail.ok
+    assert len(report_fail.variables["var"].missing_unexpected) == 1
