@@ -60,9 +60,10 @@ python -m twine upload dist/*
 ## Conda-Forge Release (maintainers)
 
 1. Ensure the PyPI release is published.
-2. Update `recipe/meta.yaml`:
-   - set `version`
-   - set `sha256` to the PyPI sdist hash
+2. Update `recipe/meta.yaml` for the conda-forge submission:
+   - set a fixed `version` that matches PyPI
+   - replace `source.git_url` with the PyPI sdist URL
+   - set `sha256` to the published sdist hash
 3. Submit to conda-forge:
    - first release: PR to `conda-forge/staged-recipes`
    - subsequent releases: PR to `conda-forge/xzarrguard-feedstock`

@@ -1,21 +1,19 @@
 # Conda-Forge Recipe Notes
 
-This folder contains a starter recipe for conda-forge submissions.
+This repo keeps a local CI-friendly recipe using `git_url` plus `GIT_DESCRIBE_*` metadata.
 
-## Update Checklist
+## Local CI behavior
 
-1. Release to PyPI first.
-2. Update `version` in `recipe/meta.yaml`.
-3. Replace `sha256` with the hash of the PyPI sdist for that version.
-4. For first publication, open a PR to `conda-forge/staged-recipes` with this recipe.
-5. For updates, open a PR to `conda-forge/xzarrguard-feedstock`.
+- `source.git_url` points to this checkout (`FEEDSTOCK_ROOT`).
+- `version` defaults to `untagged` unless `GIT_DESCRIBE_TAG` is provided.
 
-## SHA256 Helper
+## Publishing Checklist
 
-After building locally, you can compute a candidate hash with:
-
-```bash
-sha256sum dist/xzarrguard-<version>.tar.gz
-```
-
-Use the hash from the artifact you actually publish to PyPI.
+1. Publish to PyPI first.
+2. Update `recipe/meta.yaml` for conda-forge submission:
+   - set a fixed `version` (from the PyPI release)
+   - switch `source` to the PyPI sdist URL
+   - add the sdist `sha256`
+3. Submit:
+   - first release: PR to `conda-forge/staged-recipes`
+   - updates: PR to `conda-forge/xzarrguard-feedstock`
