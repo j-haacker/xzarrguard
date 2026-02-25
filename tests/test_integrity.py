@@ -63,13 +63,14 @@ def test_check_with_timing_populates_timing_payload(tmp_path: Path) -> None:
 
     assert report.timing is not None
     assert report.timing.total_s >= 0.0
-    assert report.timing.exists_calls == report.variables["var"].expected_chunks
+    expected_exists_calls = sum(item.expected_chunks for item in report.variables.values())
+    assert report.timing.exists_calls == expected_exists_calls
     assert "var" in report.timing.variables
     var_timing = report.timing.variables["var"]
     assert var_timing.expected_chunks == report.variables["var"].expected_chunks
     assert var_timing.chunk_scan_s >= 0.0
     payload = report.to_dict()
-    assert payload["timing"]["exists_calls"] == report.variables["var"].expected_chunks
+    assert payload["timing"]["exists_calls"] == expected_exists_calls
 
 
 def test_check_without_timing_omits_timing_payload(tmp_path: Path) -> None:
