@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "xzarrguard contributors" }]
+authors = [{ name = "Jan Haacker", email = "152862650+j-haacker@users.noreply.github.com" }]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",

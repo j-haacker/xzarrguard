@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Iterable, Mapping
 from urllib.parse import quote
 
 from .models import ChunkRef
@@ -55,7 +55,10 @@ def dump_no_data_chunks(
         variable: [list(coord) for coord in coords]
         for variable, coords in sorted(normalized.items(), key=lambda item: item[0])
     }
-    Path(path).write_text(json.dumps(serializable, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    Path(path).write_text(
+        json.dumps(serializable, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def manifest_path(store_path: str | Path, variable: str) -> Path:
