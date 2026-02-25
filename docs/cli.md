@@ -5,8 +5,11 @@
 ```bash
 xzarrguard check /path/to/store.zarr
 xzarrguard check /path/to/store.zarr --json
+xzarrguard check /path/to/store.zarr --timing
 xzarrguard check /path/to/store.zarr --strict-stale
 ```
+
+`--timing` adds coarse phase timings. With `--json`, timings are included in the JSON payload.
 
 Exit codes:
 

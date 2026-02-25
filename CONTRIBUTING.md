@@ -25,6 +25,17 @@ pre-commit run --all-files
 - Keep functions and docs concise.
 - Use focused commits with descriptive messages.
 
+## Benchmarking
+
+Use the lightweight benchmark helper to compare `check` performance before and after changes.
+
+```bash
+python scripts/benchmark_check.py /path/to/store.zarr --runs 5 --warmup 1 --out bench-before.json
+python scripts/benchmark_check.py /path/to/store.zarr --runs 5 --warmup 1 --out bench-after.json --baseline bench-before.json
+```
+
+This tool runs `xzarrguard check --json --timing`, reports summary stats, and writes comparable JSON results.
+
 ## Release (maintainers)
 
 1. Update `src/xzarrguard/_version.py`.

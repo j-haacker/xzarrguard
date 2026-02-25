@@ -54,6 +54,33 @@ def test_check_passes_complete_store_without_manifest(tmp_path: Path) -> None:
     assert bool(report)
 
 
+def test_check_with_timing_populates_timing_payload(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    report = check_store(store, timing=True)
+
+    assert report.timing is not None
+    assert report.timing.total_s >= 0.0
+    assert report.timing.exists_calls == report.variables["var"].expected_chunks
+    assert "var" in report.timing.variables
+    var_timing = report.timing.variables["var"]
+    assert var_timing.expected_chunks == report.variables["var"].expected_chunks
+    assert var_timing.chunk_scan_s >= 0.0
+    payload = report.to_dict()
+    assert payload["timing"]["exists_calls"] == report.variables["var"].expected_chunks
+
+
+def test_check_without_timing_omits_timing_payload(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    report = check_store(store)
+
+    assert report.timing is None
+    assert "timing" not in report.to_dict()
+
+
 def test_check_fails_missing_chunk_without_manifest(tmp_path: Path) -> None:
     store = tmp_path / "store.zarr"
     create_store(_dataset(), store, no_data_strategy="empty_chunks")
@@ -109,7 +136,12 @@ def test_stale_manifest_behavior_strict_and_non_strict(tmp_path: Path) -> None:
 def test_create_manifest_strategy_roundtrip(tmp_path: Path) -> None:
     store = tmp_path / "store.zarr"
 
-    report = create_store(_dataset(), store, no_data_chunks={"var": [(0, 1)]}, no_data_strategy="manifest")
+    report = create_store(
+        _dataset(),
+        store,
+        no_data_chunks={"var": [(0, 1)]},
+        no_data_strategy="manifest",
+    )
     check = check_store(store)
 
     assert report.ok
@@ -120,7 +152,12 @@ def test_create_manifest_strategy_roundtrip(tmp_path: Path) -> None:
 def test_create_empty_chunks_strategy_roundtrip(tmp_path: Path) -> None:
     store = tmp_path / "store.zarr"
 
-    report = create_store(_dataset(), store, no_data_chunks={"var": [(0, 1)]}, no_data_strategy="empty_chunks")
+    report = create_store(
+        _dataset(),
+        store,
+        no_data_chunks={"var": [(0, 1)]},
+        no_data_strategy="empty_chunks",
+    )
     check = check_store(store)
 
     assert report.ok

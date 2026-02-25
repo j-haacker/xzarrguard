@@ -53,18 +53,64 @@ class IntegrityReport:
     strict_stale_manifest: bool
     variables: dict[str, VariableIntegrity] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    timing: IntegrityTiming | None = None
     ok: bool = True
 
     def __bool__(self) -> bool:
         return self.ok
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "store_path": self.store_path,
             "strict_stale_manifest": self.strict_stale_manifest,
             "ok": self.ok,
             "errors": list(self.errors),
             "variables": {name: report.to_dict() for name, report in self.variables.items()},
+        }
+        if self.timing is not None:
+            payload["timing"] = self.timing.to_dict()
+        return payload
+
+
+@dataclass(slots=True)
+class VariableTiming:
+    """Timing details for one variable check."""
+
+    manifest_load_s: float = 0.0
+    manifest_validate_s: float = 0.0
+    chunk_scan_s: float = 0.0
+    expected_chunks: int = 0
+    missing_chunks: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "manifest_load_s": self.manifest_load_s,
+            "manifest_validate_s": self.manifest_validate_s,
+            "chunk_scan_s": self.chunk_scan_s,
+            "expected_chunks": self.expected_chunks,
+            "missing_chunks": self.missing_chunks,
+        }
+
+
+@dataclass(slots=True)
+class IntegrityTiming:
+    """Optional coarse-grained timing information for `check_store`."""
+
+    total_s: float = 0.0
+    scan_specs_s: float = 0.0
+    manifest_s: float = 0.0
+    chunk_scan_s: float = 0.0
+    exists_calls: int = 0
+    variables: dict[str, VariableTiming] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_s": self.total_s,
+            "scan_specs_s": self.scan_specs_s,
+            "manifest_s": self.manifest_s,
+            "chunk_scan_s": self.chunk_scan_s,
+            "exists_calls": self.exists_calls,
+            "variables": {name: item.to_dict() for name, item in self.variables.items()},
         }
 
 
@@ -85,6 +131,7 @@ class CreateReport:
             "ok": self.ok,
             "manifests_written": list(self.manifests_written),
             "removed_chunks": {
-                name: [item.to_dict() for item in refs] for name, refs in self.removed_chunks.items()
+                name: [item.to_dict() for item in refs]
+                for name, refs in self.removed_chunks.items()
             },
         }

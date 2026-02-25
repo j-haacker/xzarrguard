@@ -23,6 +23,7 @@ def _build_parser() -> argparse.ArgumentParser:
     check = subparsers.add_parser("check", help="Check store completeness")
     check.add_argument("store_path", help="Path to Zarr store")
     check.add_argument("--json", action="store_true", help="Print JSON report")
+    check.add_argument("--timing", action="store_true", help="Print coarse timing details")
     check.add_argument(
         "--strict-stale",
         action="store_true",
@@ -40,7 +41,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _run_check(args: argparse.Namespace) -> int:
     try:
-        report = check_store(args.store_path, strict_stale_manifest=args.strict_stale)
+        report = check_store(
+            args.store_path,
+            strict_stale_manifest=args.strict_stale,
+            timing=args.timing,
+        )
     except Exception as exc:  # pragma: no cover - defensive CLI guard
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -64,6 +69,16 @@ def _run_check(args: argparse.Namespace) -> int:
                 print(f"{name}: {', '.join(details)}")
         for error in report.errors:
             print(f"error: {error}")
+        if args.timing and report.timing is not None:
+            timing = report.timing
+            print(
+                "timing: "
+                f"total={timing.total_s:.3f}s "
+                f"scan_specs={timing.scan_specs_s:.3f}s "
+                f"manifest={timing.manifest_s:.3f}s "
+                f"chunk_scan={timing.chunk_scan_s:.3f}s "
+                f"exists_calls={timing.exists_calls}"
+            )
 
     return 0 if report.ok else 1
 

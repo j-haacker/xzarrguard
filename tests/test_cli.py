@@ -86,6 +86,30 @@ def test_cli_check_json_output(tmp_path: Path, capsys) -> None:
     assert payload["ok"] is True
 
 
+def test_cli_check_timing_output(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    code = main(["check", str(store), "--timing"])
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "timing: total=" in out
+
+
+def test_cli_check_json_output_with_timing(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    code = main(["check", str(store), "--json", "--timing"])
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+
+    assert code == 0
+    assert payload["ok"] is True
+    assert payload["timing"]["exists_calls"] > 0
+
+
 def test_cli_create_then_check_roundtrip(tmp_path: Path, capsys) -> None:
     source = tmp_path / "source.zarr"
     target = tmp_path / "target.zarr"
