@@ -2,6 +2,7 @@
 site_name = "xzarrguard"
 site_description = "Integrity checks for Zarr v3 stores"
 site_author = "Jan Haacker"
+site_url = "https://j-haacker.github.io/xzarrguard/"
 copyright = """
 Copyright &copy; 2026 Jan Haacker
 """

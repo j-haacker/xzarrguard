@@ -44,6 +44,8 @@ pytest
 
 ## Documentation
 
+https://j-haacker.github.io/xzarrguard/
+
 ```bash
 zensical serve
 zensical build --clean

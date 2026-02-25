@@ -40,7 +40,7 @@ about:
   summary: Integrity checks and creation helpers for Zarr v3 stores
   license: MIT
   license_file: LICENSE
-  doc_url: https://github.com/j-haacker/xzarrguard#readme
+  doc_url: https://j-haacker.github.io/xzarrguard/
   dev_url: https://github.com/j-haacker/xzarrguard
 
 extra:
