@@ -1,0 +1,45 @@
+{% set name = "xzarrguard" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: REPLACE_WITH_PYPI_SDIST_SHA256
+
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  entry_points:
+    - xzarrguard = xzarrguard.cli:main
+
+requirements:
+  host:
+    - python >=3.12
+    - hatchling >=1.25.0
+    - pip
+  run:
+    - python >=3.12
+    - xarray >=2024.9.0
+    - zarr >=3.0.0
+
+test:
+  imports:
+    - xzarrguard
+  commands:
+    - xzarrguard --version
+
+about:
+  home: https://github.com/j-haacker/xzarrguard
+  summary: Integrity checks and creation helpers for Zarr v3 stores
+  license: MIT
+  license_file: LICENSE
+  doc_url: https://github.com/j-haacker/xzarrguard#readme
+  dev_url: https://github.com/j-haacker/xzarrguard
+
+extra:
+  recipe-maintainers:
+    - j-haacker

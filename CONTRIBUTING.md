@@ -56,3 +56,19 @@ python -m twine check dist/*
 ```bash
 python -m twine upload dist/*
 ```
+
+## Conda-Forge Release (maintainers)
+
+1. Ensure the PyPI release is published.
+2. Update `recipe/meta.yaml`:
+   - set `version`
+   - set `sha256` to the PyPI sdist hash
+3. Submit to conda-forge:
+   - first release: PR to `conda-forge/staged-recipes`
+   - subsequent releases: PR to `conda-forge/xzarrguard-feedstock`
+
+Quick local hash helper:
+
+```bash
+sha256sum dist/xzarrguard-<version>.tar.gz
+```

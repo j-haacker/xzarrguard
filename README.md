@@ -52,5 +52,6 @@ python -m twine upload dist/*
 ```
 
 Use a PyPI API token for upload (for example `TWINE_USERNAME=__token__`).
+For conda-forge, update `recipe/meta.yaml` after the PyPI release and submit a recipe/feedstock PR.
 
 Acknowledgement: Initial scaffolding and implementation assistance by OpenAI Codex.
