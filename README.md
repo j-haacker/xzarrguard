@@ -4,9 +4,14 @@
 
 ## Install
 
-```bash
-pip install .
-```
+**PyPI**: `pip install xzarrguard`  
+**conda**: `conda isntall xzarrguard`  
+**from source**: `pip install .`  
+
+## Install-free CLI usage
+
+**uv**: `uvx  xzarrguard check /path/to/store.zarr`  
+**pixi**: `pixi exec xzarrguard check /path/to/store.zarr`
 
 ## API quickstart
 
@@ -50,6 +55,12 @@ https://j-haacker.github.io/xzarrguard/
 zensical serve
 zensical build --clean
 ```
+
+## Channels
+
+- PyPI: https://pypi.org/project/xzarrguard/
+- Conda-forge: https://anaconda.org/conda-forge/xzarrguard
+- GitHub: https://github.com/j-haacker/xzarrguard
 
 ## Release (maintainers)
 
