@@ -14,6 +14,9 @@ source:
 build:
   noarch: python
   script: ${{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  python:
+    entry_points:
+      - xzarrguard = xzarrguard.cli:main
   number: 0
 
 requirements:
@@ -31,12 +34,13 @@ tests:
       imports:
         - xzarrguard
       pip_check: true
-      python_version: ${{ python_min }}.*
+      python_version:
+        - ${{ python_min }}.*
+        - "*"
   - script:
-      # Use module invocation to avoid Windows entrypoint wrapper issues in CI.
-      - python -m xzarrguard.cli --help
+      - xzarrguard --help
   - script:
-      - python -m pytest -q -o addopts='' tests
+      - pytest -q -o addopts='' tests
     requirements:
       run:
         - pytest
