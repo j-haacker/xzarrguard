@@ -5,7 +5,23 @@ __pycache__/
 .ruff_cache/
 .tox/
 .venv/
+uv.lock
 dist/
 build/
 site/
+.coverage
+coverage.xml
+htmlcov/
 .DS_Store
+# conda smithy ci-skeleton start
+*.pyc
+build_artifacts
+# conda smithy ci-skeleton end
+
+# local feedstock scaffold (kept untracked in source repo)
+.azure-pipelines/
+.circleci/
+.ci_support/
+.scripts/
+azure-pipelines.yml
+conda-forge.yml
