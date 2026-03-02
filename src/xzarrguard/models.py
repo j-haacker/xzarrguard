@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, TypeAlias
+
+NoDataStrategy: TypeAlias = Literal["manifest", "empty_chunks"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +121,7 @@ class CreateReport:
     """Result of creating a store with optional no-data policy."""
 
     store_path: str
-    no_data_strategy: str
+    no_data_strategy: NoDataStrategy
     manifests_written: list[str] = field(default_factory=list)
     removed_chunks: dict[str, list[ChunkRef]] = field(default_factory=dict)
     ok: bool = True

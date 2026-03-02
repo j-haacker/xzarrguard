@@ -8,9 +8,14 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xzarrguard import check_store, create_store
+from xzarrguard import check_store, create_store, guarded_to_zarr
 from xzarrguard.layout import chunk_key, chunk_path, scan_array_specs
-from xzarrguard.manifest import load_no_data_chunks, write_variable_manifest
+from xzarrguard.manifest import (
+    load_no_data_chunks,
+    load_variable_manifest,
+    manifest_path,
+    write_variable_manifest,
+)
 from xzarrguard.models import ChunkRef
 
 
@@ -165,6 +170,142 @@ def test_create_empty_chunks_strategy_roundtrip(tmp_path: Path) -> None:
     assert report.ok
     assert not report.manifests_written
     assert check.ok
+
+
+def test_guarded_to_zarr_roundtrip(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+
+    report = guarded_to_zarr(_dataset(), store)
+    check = check_store(store)
+
+    assert report.ok
+    assert check.ok
+
+
+def test_guarded_to_zarr_rejects_store_kwarg(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+
+    with pytest.raises(ValueError, match="must not be provided"):
+        guarded_to_zarr(
+            _dataset(),
+            store,
+            to_zarr_kwargs={"store": store},
+        )
+
+
+def test_create_in_place_metadata_roundtrip(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    missing_coord = (0, 0)
+    chunk_path(spec, missing_coord).unlink()
+
+    report = create_store(
+        None,
+        store,
+        no_data_chunks={"var": [missing_coord]},
+        in_place_metadata_only=True,
+    )
+
+    assert report.ok
+    assert report.manifests_written
+    assert not chunk_path(spec, missing_coord).exists()
+    assert check_store(store).ok
+
+
+def test_create_in_place_metadata_requires_missing_chunks(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    with pytest.raises(ValueError, match="currently missing chunks"):
+        create_store(
+            None,
+            store,
+            no_data_chunks={"var": [(0, 0)]},
+            in_place_metadata_only=True,
+        )
+
+
+def test_create_in_place_metadata_is_transactional(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_chunks={"var": [(0, 1)]}, no_data_strategy="manifest")
+
+    manifest_file = manifest_path(store, "var")
+    before = manifest_file.read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match="out of bounds"):
+        create_store(
+            None,
+            store,
+            no_data_chunks={"var": [(99, 99)]},
+            in_place_metadata_only=True,
+        )
+
+    after = manifest_file.read_text(encoding="utf-8")
+    assert before == after
+
+
+def test_create_in_place_metadata_infers_missing_from_store(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    chunk_path(spec, (0, 0)).unlink()
+    chunk_path(spec, (1, 1)).unlink()
+
+    report = create_store(
+        None,
+        store,
+        in_place_metadata_only=True,
+        infer_no_data_from_store=True,
+    )
+
+    assert report.ok
+    assert report.manifests_written
+    has_manifest, refs = load_variable_manifest(store, "var")
+    assert has_manifest
+    assert sorted(ref.coord for ref in refs) == [(0, 0), (1, 1)]
+    assert check_store(store).ok
+
+
+def test_create_in_place_metadata_infer_replaces_stale_manifests(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    write_variable_manifest(
+        store,
+        "var",
+        [ChunkRef(coord=(0, 0), key=chunk_key(spec, (0, 0)))],
+    )
+    assert manifest_path(store, "var").exists()
+
+    report = create_store(
+        None,
+        store,
+        in_place_metadata_only=True,
+        infer_no_data_from_store=True,
+    )
+
+    assert report.ok
+    assert not report.manifests_written
+    assert not manifest_path(store, "var").exists()
+    assert check_store(store, strict_stale_manifest=True).ok
+
+
+def test_create_in_place_metadata_infer_rejects_explicit_no_data(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    with pytest.raises(ValueError, match="cannot be combined with explicit no_data_chunks"):
+        create_store(
+            None,
+            store,
+            no_data_chunks={"var": [(0, 0)]},
+            in_place_metadata_only=True,
+            infer_no_data_from_store=True,
+        )
 
 
 def test_load_no_data_mapping_validation(tmp_path: Path) -> None:

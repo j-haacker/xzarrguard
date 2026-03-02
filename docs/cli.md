@@ -19,9 +19,25 @@ Exit codes:
 
 ## Create
 
+Write a new store from source:
+
 ```bash
 xzarrguard create /path/to/source.zarr /path/to/target.zarr --no-data no_data.json
 ```
+
+Update only metadata in an existing store (no data rewrite):
+
+```bash
+xzarrguard create /path/to/store.zarr --in-place-metadata-only --no-data no_data.json
+```
+
+Build manifests from the store's current missing chunks (treat current state as baseline):
+
+```bash
+xzarrguard create /path/to/store.zarr --in-place-metadata-only --infer-no-data-from-store
+```
+
+`--infer-no-data-from-store` cannot be combined with `--no-data`.
 
 `no_data.json` maps variable names to chunk coordinates:
 

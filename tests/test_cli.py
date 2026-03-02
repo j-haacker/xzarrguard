@@ -124,3 +124,82 @@ def test_cli_create_then_check_roundtrip(tmp_path: Path, capsys) -> None:
 
     assert create_code == 0
     assert check_code == 0
+
+
+def test_cli_create_in_place_metadata_then_check(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    no_data = tmp_path / "no_data.json"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    chunk_path(spec, (0, 0)).unlink()
+    dump_no_data_chunks(no_data, {"var": [(0, 0)]})
+
+    create_code = main([
+        "create",
+        str(store),
+        "--in-place-metadata-only",
+        "--no-data",
+        str(no_data),
+    ])
+    create_out = capsys.readouterr().out
+    check_code = main(["check", str(store)])
+
+    assert create_code == 0
+    assert f"updated: {store}" in create_out
+    assert check_code == 0
+
+
+def test_cli_create_in_place_metadata_rejects_different_target(capsys) -> None:
+    create_code = main([
+        "create",
+        "source.zarr",
+        "target.zarr",
+        "--in-place-metadata-only",
+    ])
+    err = capsys.readouterr().err
+
+    assert create_code == 2
+    assert "target_store must be omitted or equal to source_zarr" in err
+
+
+def test_cli_create_in_place_metadata_infers_missing_from_store(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    chunk_path(spec, (0, 0)).unlink()
+
+    create_code = main([
+        "create",
+        str(store),
+        "--in-place-metadata-only",
+        "--infer-no-data-from-store",
+    ])
+    create_out = capsys.readouterr().out
+    check_code = main(["check", str(store)])
+
+    assert create_code == 0
+    assert f"updated: {store}" in create_out
+    assert "manifests: 1" in create_out
+    assert check_code == 0
+
+
+def test_cli_create_in_place_metadata_rejects_infer_with_no_data(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    no_data = tmp_path / "no_data.json"
+    create_store(_dataset(), store, no_data_strategy="empty_chunks")
+    dump_no_data_chunks(no_data, {"var": [(0, 0)]})
+
+    create_code = main([
+        "create",
+        str(store),
+        "--in-place-metadata-only",
+        "--infer-no-data-from-store",
+        "--no-data",
+        str(no_data),
+    ])
+    err = capsys.readouterr().err
+
+    assert create_code == 2
+    assert "--infer-no-data-from-store cannot be combined with --no-data" in err

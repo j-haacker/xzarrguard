@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 import xarray as xr
 
@@ -32,9 +33,23 @@ def _build_parser() -> argparse.ArgumentParser:
 
     create = subparsers.add_parser("create", help="Create integrity-aware store")
     create.add_argument("source_zarr", help="Source Zarr store readable by xarray")
-    create.add_argument("target_store", help="Target Zarr store path")
+    create.add_argument(
+        "target_store",
+        nargs="?",
+        help="Target Zarr store path. Omit when using --in-place-metadata-only.",
+    )
     create.add_argument("--no-data", help="JSON mapping of variable to no-data chunk coordinates")
     create.add_argument("--overwrite", action="store_true", help="Overwrite target if it exists")
+    create.add_argument(
+        "--in-place-metadata-only",
+        action="store_true",
+        help="Update manifests in an existing store without rewriting chunk data",
+    )
+    create.add_argument(
+        "--infer-no-data-from-store",
+        action="store_true",
+        help="In in-place mode, derive allowed-missing chunks from currently missing chunks",
+    )
 
     return parser
 
@@ -85,6 +100,54 @@ def _run_check(args: argparse.Namespace) -> int:
 
 def _run_create(args: argparse.Namespace) -> int:
     no_data = load_no_data_chunks(args.no_data) if args.no_data else None
+
+    if args.in_place_metadata_only:
+        if args.overwrite:
+            print("error: --overwrite cannot be used with --in-place-metadata-only", file=sys.stderr)
+            return 2
+        if args.infer_no_data_from_store and args.no_data:
+            print(
+                "error: --infer-no-data-from-store cannot be combined with --no-data",
+                file=sys.stderr,
+            )
+            return 2
+
+        if args.target_store is None:
+            target_store = args.source_zarr
+        else:
+            source = Path(args.source_zarr)
+            target = Path(args.target_store)
+            if source != target:
+                print(
+                    "error: with --in-place-metadata-only, target_store must be omitted "
+                    "or equal to source_zarr",
+                    file=sys.stderr,
+                )
+                return 2
+            target_store = args.target_store
+
+        try:
+            report = create_store(
+                None,
+                target_store,
+                no_data_chunks=no_data,
+                in_place_metadata_only=True,
+                infer_no_data_from_store=args.infer_no_data_from_store,
+            )
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+
+        print(f"updated: {report.store_path}")
+        if report.manifests_written:
+            print(f"manifests: {len(report.manifests_written)}")
+        elif args.infer_no_data_from_store:
+            print("manifests: 0 (no missing chunks detected)")
+        return 0
+
+    if args.target_store is None:
+        print("error: target_store is required unless --in-place-metadata-only is used", file=sys.stderr)
+        return 2
 
     dataset = xr.open_zarr(args.source_zarr, consolidated=False)
     try:
