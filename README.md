@@ -5,12 +5,12 @@
 ## Install
 
 **PyPI**: `pip install xzarrguard`  
-**conda**: `conda isntall xzarrguard`  
+**conda**: `conda install xzarrguard`  
 **from source**: `pip install .`  
 
 ## Install-free CLI usage
 
-**uv**: `uvx  xzarrguard check /path/to/store.zarr`  
+**uv**: `uvx xzarrguard check /path/to/store.zarr`  
 **pixi**: `pixi exec xzarrguard check /path/to/store.zarr`
 
 ## API quickstart
@@ -32,11 +32,44 @@ create_store(
 )
 ```
 
+Write and guard in one step (wrapper around `.to_zarr()`):
+
+```python
+from xzarrguard import guarded_to_zarr
+
+guarded_to_zarr(dataset, "store.zarr")
+```
+
+In-place metadata-only guard update (no chunk rewrite):
+
+```python
+create_store(
+    None,
+    "store.zarr",
+    no_data_chunks={"temperature": [(0, 0)]},
+    in_place_metadata_only=True,
+)
+```
+
+Treat the current store as baseline and derive allowed-missing chunks from
+what is currently missing:
+
+```python
+create_store(
+    None,
+    "store.zarr",
+    in_place_metadata_only=True,
+    infer_no_data_from_store=True,
+)
+```
+
 ## CLI quickstart
 
 ```bash
 xzarrguard check store.zarr
 xzarrguard create source.zarr target.zarr --no-data no_data.json
+xzarrguard create store.zarr --in-place-metadata-only --no-data no_data.json
+xzarrguard create store.zarr --in-place-metadata-only --infer-no-data-from-store
 ```
 
 ## Coverage

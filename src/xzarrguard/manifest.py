@@ -61,17 +61,27 @@ def dump_no_data_chunks(
     )
 
 
-def manifest_path(store_path: str | Path, variable: str) -> Path:
+def manifest_path(
+    store_path: str | Path,
+    variable: str,
+    *,
+    manifest_root: str | Path = MANIFEST_ROOT,
+) -> Path:
     """Return manifest path for one variable."""
 
     safe_name = quote(variable, safe="")
-    return Path(store_path) / MANIFEST_ROOT / f"{safe_name}.json"
+    return Path(store_path) / Path(manifest_root) / f"{safe_name}.json"
 
 
-def load_variable_manifest(store_path: str | Path, variable: str) -> tuple[bool, list[ChunkRef]]:
+def load_variable_manifest(
+    store_path: str | Path,
+    variable: str,
+    *,
+    manifest_root: str | Path = MANIFEST_ROOT,
+) -> tuple[bool, list[ChunkRef]]:
     """Read a single variable manifest."""
 
-    path = manifest_path(store_path, variable)
+    path = manifest_path(store_path, variable, manifest_root=manifest_root)
     if not path.exists():
         return False, []
 
@@ -90,10 +100,11 @@ def write_variable_manifest(
     refs: Iterable[ChunkRef],
     *,
     zarr_format: int = 3,
+    manifest_root: str | Path = MANIFEST_ROOT,
 ) -> Path:
     """Write a single variable manifest file."""
 
-    path = manifest_path(store_path, variable)
+    path = manifest_path(store_path, variable, manifest_root=manifest_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": MANIFEST_SCHEMA_VERSION,

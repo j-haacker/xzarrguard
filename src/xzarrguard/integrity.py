@@ -6,7 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 from .layout import chunk_key, chunk_path, coord_in_bounds, expected_chunk_coords, scan_array_specs
-from .manifest import load_variable_manifest
+from .manifest import MANIFEST_ROOT, load_variable_manifest
 from .models import ChunkRef, IntegrityReport, IntegrityTiming, VariableIntegrity, VariableTiming
 
 
@@ -15,6 +15,7 @@ def check_store(
     *,
     strict_stale_manifest: bool = False,
     timing: bool = False,
+    _manifest_root: str | Path = MANIFEST_ROOT,
 ) -> IntegrityReport:
     """Validate completeness of a Zarr v3 store."""
 
@@ -52,7 +53,11 @@ def check_store(
         var_timing = VariableTiming() if timing_data is not None else None
 
         manifest_load_start = perf_counter() if var_timing is not None else 0.0
-        has_manifest, manifest_refs = load_variable_manifest(store, spec.name)
+        has_manifest, manifest_refs = load_variable_manifest(
+            store,
+            spec.name,
+            manifest_root=_manifest_root,
+        )
         if var_timing is not None:
             var_timing.manifest_load_s = perf_counter() - manifest_load_start
 
