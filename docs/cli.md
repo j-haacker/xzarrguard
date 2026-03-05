@@ -64,3 +64,5 @@ Direction options:
 - `auto` (default): if manifests exist, converts to materialized; otherwise converts to manifest.
 - `materialized_to_manifest`: deletes all-NaN chunks and writes manifests.
 - `manifest_to_materialized`: re-creates missing chunks and removes manifests.
+
+Note: some Zarr operations may emit `ZarrUserWarning: Object at .xzarrguard is not recognized as a component of a Zarr hierarchy.` This is expected, because `.xzarrguard/` stores xzarrguard sidecar manifests and is not part of the Zarr hierarchy itself.

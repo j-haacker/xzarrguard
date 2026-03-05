@@ -85,6 +85,8 @@ xzarrguard convert store.zarr
 xzarrguard convert store.zarr --direction manifest_to_materialized
 ```
 
+Note: you may see `ZarrUserWarning: Object at .xzarrguard is not recognized as a component of a Zarr hierarchy.` when tooling walks the store hierarchy. This is expected: `.xzarrguard/` is xzarrguard sidecar metadata, not a Zarr array/group node.
+
 ## Coverage
 
 ```bash
