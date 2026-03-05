@@ -39,6 +39,8 @@ xzarrguard create /path/to/store.zarr --in-place-metadata-only --infer-no-data-f
 
 `--infer-no-data-from-store` cannot be combined with `--no-data`.
 
+For distributed write phases, prefer upstream `xarray.Dataset.to_zarr(..., write_empty_chunks=True)` and use `xzarrguard convert` as the finalization step.
+
 `no_data.json` maps variable names to chunk coordinates:
 
 ```json
@@ -46,3 +48,19 @@ xzarrguard create /path/to/store.zarr --in-place-metadata-only --infer-no-data-f
   "temperature": [[0, 0], [1, 2]]
 }
 ```
+
+## Convert
+
+Finalize or re-materialize no-data representation in an existing store:
+
+```bash
+xzarrguard convert /path/to/store.zarr
+xzarrguard convert /path/to/store.zarr --direction materialized_to_manifest
+xzarrguard convert /path/to/store.zarr --direction manifest_to_materialized
+```
+
+Direction options:
+
+- `auto` (default): if manifests exist, converts to materialized; otherwise converts to manifest.
+- `materialized_to_manifest`: deletes all-NaN chunks and writes manifests.
+- `manifest_to_materialized`: re-creates missing chunks and removes manifests.

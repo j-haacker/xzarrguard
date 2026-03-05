@@ -1,4 +1,4 @@
-"""Companion API to create integrity-checkable stores."""
+"""Companion APIs to create and convert integrity-checkable stores."""
 
 from __future__ import annotations
 
@@ -6,15 +6,18 @@ import inspect
 import shutil
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
+import numpy as np
 import xarray as xr
+import zarr
+from zarr.core.config import config
 
 from .integrity import check_store
 from .layout import chunk_key, chunk_path, coord_in_bounds, expected_chunk_coords, scan_array_specs
 from .manifest import MANIFEST_ROOT, load_variable_manifest, write_variable_manifest
-from .models import ChunkRef, CreateReport, NoDataStrategy
+from .models import ChunkRef, ConvertDirection, ConvertReport, CreateReport, NoDataStrategy
 
 
 def _normalize_chunks(
@@ -161,7 +164,7 @@ def _update_store_metadata_in_place(
                     refs,
                     manifest_root=staged_root,
                 )
-                report.manifests_written.append(str((store / MANIFEST_ROOT / staged_path.name)))
+                report.manifests_written.append(str(store / MANIFEST_ROOT / staged_path.name))
         else:
             for variable, coords in no_data_chunks.items():
                 spec = specs[variable]
@@ -174,7 +177,9 @@ def _update_store_metadata_in_place(
 
                 for coord in coords:
                     if not coord_in_bounds(spec, coord):
-                        raise ValueError(f"Chunk coord {coord} out of bounds for variable {variable}")
+                        raise ValueError(
+                            f"Chunk coord {coord} out of bounds for variable {variable}"
+                        )
                     ref = ChunkRef(coord=coord, key=chunk_key(spec, coord))
                     if chunk_path(spec, coord).exists():
                         raise ValueError(
@@ -190,7 +195,7 @@ def _update_store_metadata_in_place(
                     merged_refs,
                     manifest_root=staged_root,
                 )
-                report.manifests_written.append(str((store / MANIFEST_ROOT / staged_path.name)))
+                report.manifests_written.append(str(store / MANIFEST_ROOT / staged_path.name))
 
         integrity = check_store(store, _manifest_root=staged_root)
         if not integrity.ok:
@@ -238,7 +243,9 @@ def create_store(
         )
 
     if infer_no_data_from_store:
-        raise ValueError("infer_no_data_from_store is only supported with in_place_metadata_only=True")
+        raise ValueError(
+            "infer_no_data_from_store is only supported with in_place_metadata_only=True"
+        )
 
     if dataset is None:
         raise ValueError("dataset is required unless in_place_metadata_only=True")
@@ -318,3 +325,189 @@ def guarded_to_zarr(
         in_place_metadata_only=True,
         infer_no_data_from_store=infer_no_data_from_store,
     )
+
+
+def _manifest_files(store: Path) -> list[Path]:
+    manifest_dir = store / MANIFEST_ROOT
+    if not manifest_dir.exists():
+        return []
+    return sorted(path for path in manifest_dir.glob("*.json") if path.is_file())
+
+
+def _detect_convert_direction(store: Path) -> ConvertDirection:
+    if _manifest_files(store):
+        return "manifest_to_materialized"
+    return "materialized_to_manifest"
+
+
+def _chunk_slices(spec: Any, coord: tuple[int, ...]) -> tuple[slice, ...]:
+    return tuple(
+        slice(index * chunk, min((index + 1) * chunk, size))
+        for index, chunk, size in zip(coord, spec.chunk_shape, spec.shape, strict=True)
+    )
+
+
+def _open_array_node(group: Any, array_name: str) -> Any:
+    node = group
+    for part in array_name.split("/") if array_name else []:
+        node = node[part]
+    return node
+
+
+def _dtype_supports_nan(dtype: np.dtype[Any]) -> bool:
+    return bool(np.issubdtype(dtype, np.floating) or np.issubdtype(dtype, np.complexfloating))
+
+
+def _collect_all_nan_chunks(store: Path) -> dict[str, list[ChunkRef]]:
+    specs = {spec.name: spec for spec in scan_array_specs(store)}
+    root = zarr.open_group(str(store), mode="r")
+
+    result: dict[str, list[ChunkRef]] = {}
+    for spec in specs.values():
+        array = _open_array_node(root, spec.name)
+        dtype = np.dtype(array.dtype)
+        if not _dtype_supports_nan(dtype):
+            continue
+
+        refs: list[ChunkRef] = []
+        for coord in expected_chunk_coords(spec):
+            if not chunk_path(spec, coord).exists():
+                continue
+            data = np.asarray(array[_chunk_slices(spec, coord)])
+            if data.size == 0:
+                continue
+            if np.isnan(data).all():
+                refs.append(ChunkRef(coord=coord, key=chunk_key(spec, coord)))
+
+        if refs:
+            result[spec.name] = refs
+    return result
+
+
+def _fill_value_for_materialization(array: Any) -> Any:
+    dtype = np.dtype(array.dtype)
+    fill_value = getattr(array, "fill_value", None)
+    if fill_value is not None:
+        return fill_value
+    if _dtype_supports_nan(dtype):
+        return np.nan
+    raise ValueError(
+        f"Cannot materialize missing chunks for dtype {dtype}; no fill_value is available"
+    )
+
+
+def _convert_materialized_to_manifest(store: Path) -> ConvertReport:
+    if _manifest_files(store):
+        raise ValueError(
+            "Store already has manifests; use direction='manifest_to_materialized' "
+            "or direction='auto'"
+        )
+
+    integrity = check_store(store)
+    if not integrity.ok:
+        raise ValueError(
+            "Store must pass integrity before materialized_to_manifest conversion"
+        )
+
+    specs = {spec.name: spec for spec in scan_array_specs(store)}
+    deleted_chunks = _collect_all_nan_chunks(store)
+
+    for variable, refs in deleted_chunks.items():
+        spec = specs[variable]
+        for ref in refs:
+            _delete_chunk_file(chunk_path(spec, ref.coord), spec.path)
+
+    create_report = create_store(
+        None,
+        store,
+        in_place_metadata_only=True,
+        infer_no_data_from_store=True,
+    )
+
+    return ConvertReport(
+        store_path=str(store),
+        direction="materialized_to_manifest",
+        manifests_written=create_report.manifests_written,
+        deleted_chunks=deleted_chunks,
+    )
+
+
+def _convert_manifest_to_materialized(store: Path) -> ConvertReport:
+    manifest_files = _manifest_files(store)
+    if not manifest_files:
+        return ConvertReport(
+            store_path=str(store),
+            direction="manifest_to_materialized",
+        )
+
+    specs = {spec.name: spec for spec in scan_array_specs(store)}
+
+    materialized_chunks: dict[str, list[ChunkRef]] = {}
+    with config.set({"array.write_empty_chunks": True}):
+        root = zarr.open_group(str(store), mode="r+")
+        for spec in specs.values():
+            has_manifest, refs = load_variable_manifest(store, spec.name)
+            if not has_manifest:
+                continue
+
+            array = _open_array_node(root, spec.name)
+            dtype = np.dtype(array.dtype)
+            fill_value = _fill_value_for_materialization(array)
+
+            materialized_refs: list[ChunkRef] = []
+            for ref in refs:
+                if chunk_path(spec, ref.coord).exists():
+                    continue
+                slices = _chunk_slices(spec, ref.coord)
+                chunk_shape = tuple(item.stop - item.start for item in slices)
+                if chunk_shape:
+                    payload = np.full(chunk_shape, fill_value, dtype=dtype)
+                else:
+                    payload = np.asarray(fill_value, dtype=dtype)
+                array[slices] = payload
+                materialized_refs.append(ChunkRef(coord=ref.coord, key=chunk_key(spec, ref.coord)))
+
+            if materialized_refs:
+                materialized_chunks[spec.name] = materialized_refs
+
+    manifest_dir = store / MANIFEST_ROOT
+    if manifest_dir.exists():
+        shutil.rmtree(manifest_dir)
+
+    integrity = check_store(store, strict_stale_manifest=True)
+    if not integrity.ok:
+        raise RuntimeError("Converted store failed integrity validation")
+
+    return ConvertReport(
+        store_path=str(store),
+        direction="manifest_to_materialized",
+        manifests_removed=[str(path) for path in manifest_files],
+        materialized_chunks=materialized_chunks,
+    )
+
+
+def convert_store(
+    store_path: str | Path,
+    *,
+    direction: ConvertDirection | Literal["auto"] = "auto",
+) -> ConvertReport:
+    """Convert a store between materialized and manifest forms."""
+
+    store = Path(store_path)
+    if not store.exists():
+        raise FileNotFoundError(f"Store does not exist: {store}")
+    if not store.is_dir():
+        raise NotADirectoryError(f"Store path is not a directory: {store}")
+
+    if direction == "auto":
+        selected = _detect_convert_direction(store)
+    elif direction in {"materialized_to_manifest", "manifest_to_materialized"}:
+        selected = direction
+    else:
+        raise ValueError(
+            "direction must be 'auto', 'materialized_to_manifest', or 'manifest_to_materialized'"
+        )
+
+    if selected == "materialized_to_manifest":
+        return _convert_materialized_to_manifest(store)
+    return _convert_manifest_to_materialized(store)

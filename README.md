@@ -1,6 +1,6 @@
 # xzarrguard
 
-`xzarrguard` provides concise APIs and a CLI to validate completeness of local Zarr v3 stores and create stores with explicit no-data policy.
+`xzarrguard` provides concise APIs and a CLI to validate completeness of local Zarr v3 stores, create stores with explicit no-data policy, and convert between manifest/materialized no-data representations.
 
 ## Install
 
@@ -40,6 +40,17 @@ from xzarrguard import guarded_to_zarr
 guarded_to_zarr(dataset, "store.zarr")
 ```
 
+Recommended distributed-write workflow:
+
+1. Use upstream `xarray.Dataset.to_zarr(..., write_empty_chunks=True)` during the distributed write phase so workers materialize chunk keys deterministically.
+2. Finalize with `xzarrguard` conversion to derive compact manifests from no-data chunks.
+
+```python
+from xzarrguard import convert_store
+
+convert_store("store.zarr", direction="auto")
+```
+
 In-place metadata-only guard update (no chunk rewrite):
 
 ```python
@@ -70,6 +81,8 @@ xzarrguard check store.zarr
 xzarrguard create source.zarr target.zarr --no-data no_data.json
 xzarrguard create store.zarr --in-place-metadata-only --no-data no_data.json
 xzarrguard create store.zarr --in-place-metadata-only --infer-no-data-from-store
+xzarrguard convert store.zarr
+xzarrguard convert store.zarr --direction manifest_to_materialized
 ```
 
 ## Coverage

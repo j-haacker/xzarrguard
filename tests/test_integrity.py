@@ -8,7 +8,15 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xzarrguard import check_store, create_store, guarded_to_zarr
+from xzarrguard import (
+    ConvertDirection,
+    ConvertReport,
+    NoDataStrategy,
+    check_store,
+    convert_store,
+    create_store,
+    guarded_to_zarr,
+)
 from xzarrguard.layout import chunk_key, chunk_path, scan_array_specs
 from xzarrguard.manifest import (
     load_no_data_chunks,
@@ -16,7 +24,15 @@ from xzarrguard.manifest import (
     manifest_path,
     write_variable_manifest,
 )
-from xzarrguard.models import ChunkRef
+from xzarrguard.models import (
+    ChunkRef,
+)
+from xzarrguard.models import (
+    ConvertDirection as ModelsConvertDirection,
+)
+from xzarrguard.models import (
+    NoDataStrategy as ModelsNoDataStrategy,
+)
 
 
 def _dataset() -> xr.Dataset:
@@ -27,6 +43,12 @@ def _dataset() -> xr.Dataset:
         coords={"x": np.arange(4), "y": np.arange(4)},
     )
     ds["var"].encoding["chunks"] = (2, 2)
+    return ds
+
+
+def _dataset_with_nan_chunk() -> xr.Dataset:
+    ds = _dataset().copy(deep=True)
+    ds["var"].values[0:2, 0:2] = np.nan
     return ds
 
 
@@ -58,6 +80,12 @@ def test_check_passes_complete_store_without_manifest(tmp_path: Path) -> None:
 
     assert report.ok
     assert bool(report)
+
+
+def test_public_api_exports_convert_models() -> None:
+    assert ConvertDirection is ModelsConvertDirection
+    assert NoDataStrategy is ModelsNoDataStrategy
+    assert ConvertReport(store_path="store.zarr", direction="materialized_to_manifest").ok
 
 
 def test_check_with_timing_populates_timing_payload(tmp_path: Path) -> None:
@@ -191,6 +219,53 @@ def test_guarded_to_zarr_rejects_store_kwarg(tmp_path: Path) -> None:
             store,
             to_zarr_kwargs={"store": store},
         )
+
+
+def test_convert_materialized_to_manifest_and_back(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset_with_nan_chunk(), store, no_data_strategy="empty_chunks")
+
+    spec = next(item for item in scan_array_specs(store) if item.name == "var")
+    nan_coord = (0, 0)
+    assert chunk_path(spec, nan_coord).exists()
+
+    to_manifest = convert_store(store, direction="materialized_to_manifest")
+    assert to_manifest.ok
+    assert to_manifest.direction == "materialized_to_manifest"
+    assert any(ref.coord == nan_coord for ref in to_manifest.deleted_chunks.get("var", []))
+    assert manifest_path(store, "var").exists()
+    assert not chunk_path(spec, nan_coord).exists()
+    assert check_store(store).ok
+
+    to_materialized = convert_store(store, direction="manifest_to_materialized")
+    assert to_materialized.ok
+    assert to_materialized.direction == "manifest_to_materialized"
+    assert to_materialized.manifests_removed
+    assert any(
+        ref.coord == nan_coord
+        for ref in to_materialized.materialized_chunks.get("var", [])
+    )
+    assert not manifest_path(store, "var").exists()
+    assert chunk_path(spec, nan_coord).exists()
+    assert check_store(store, strict_stale_manifest=True).ok
+
+    reopened = xr.open_zarr(store, consolidated=False)
+    try:
+        assert np.isnan(reopened["var"].isel(x=slice(0, 2), y=slice(0, 2)).values).all()
+    finally:
+        reopened.close()
+
+
+def test_convert_auto_direction_switches_on_manifest_presence(tmp_path: Path) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset_with_nan_chunk(), store, no_data_strategy="empty_chunks")
+
+    first = convert_store(store)
+    second = convert_store(store)
+
+    assert first.direction == "materialized_to_manifest"
+    assert second.direction == "manifest_to_materialized"
+    assert check_store(store, strict_stale_manifest=True).ok
 
 
 def test_create_in_place_metadata_roundtrip(tmp_path: Path) -> None:
