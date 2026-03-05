@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
-NoDataStrategy: TypeAlias = Literal["manifest", "empty_chunks"]
+type NoDataStrategy = Literal["manifest", "empty_chunks"]
+type ConvertDirection = Literal["materialized_to_manifest", "manifest_to_materialized"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,5 +136,35 @@ class CreateReport:
             "removed_chunks": {
                 name: [item.to_dict() for item in refs]
                 for name, refs in self.removed_chunks.items()
+            },
+        }
+
+
+@dataclass(slots=True)
+class ConvertReport:
+    """Result of converting a store between materialized and manifest forms."""
+
+    store_path: str
+    direction: ConvertDirection
+    manifests_written: list[str] = field(default_factory=list)
+    manifests_removed: list[str] = field(default_factory=list)
+    deleted_chunks: dict[str, list[ChunkRef]] = field(default_factory=dict)
+    materialized_chunks: dict[str, list[ChunkRef]] = field(default_factory=dict)
+    ok: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "store_path": self.store_path,
+            "direction": self.direction,
+            "ok": self.ok,
+            "manifests_written": list(self.manifests_written),
+            "manifests_removed": list(self.manifests_removed),
+            "deleted_chunks": {
+                name: [item.to_dict() for item in refs]
+                for name, refs in self.deleted_chunks.items()
+            },
+            "materialized_chunks": {
+                name: [item.to_dict() for item in refs]
+                for name, refs in self.materialized_chunks.items()
             },
         }

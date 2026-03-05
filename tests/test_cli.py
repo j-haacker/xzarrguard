@@ -12,7 +12,7 @@ from xzarrguard._version import __version__
 from xzarrguard.cli import main
 from xzarrguard.create import create_store
 from xzarrguard.layout import chunk_path, scan_array_specs
-from xzarrguard.manifest import dump_no_data_chunks
+from xzarrguard.manifest import dump_no_data_chunks, manifest_path
 
 
 def _dataset() -> xr.Dataset:
@@ -23,6 +23,12 @@ def _dataset() -> xr.Dataset:
         coords={"x": np.arange(4), "y": np.arange(4)},
     )
     ds["var"].encoding["chunks"] = (2, 2)
+    return ds
+
+
+def _dataset_with_nan_chunk() -> xr.Dataset:
+    ds = _dataset().copy(deep=True)
+    ds["var"].values[0:2, 0:2] = np.nan
     return ds
 
 
@@ -203,3 +209,40 @@ def test_cli_create_in_place_metadata_rejects_infer_with_no_data(tmp_path: Path,
 
     assert create_code == 2
     assert "--infer-no-data-from-store cannot be combined with --no-data" in err
+
+
+def test_cli_convert_auto_to_manifest(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset_with_nan_chunk(), store, no_data_strategy="empty_chunks")
+
+    convert_code = main(["convert", str(store)])
+    convert_out = capsys.readouterr().out
+    check_code = main(["check", str(store)])
+
+    assert convert_code == 0
+    assert "direction: materialized_to_manifest" in convert_out
+    assert check_code == 0
+    assert manifest_path(store, "var").exists()
+
+
+def test_cli_convert_explicit_manifest_to_materialized(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store.zarr"
+    create_store(_dataset_with_nan_chunk(), store, no_data_strategy="empty_chunks")
+
+    to_manifest_code = main(["convert", str(store)])
+    _ = capsys.readouterr()
+    to_materialized_code = main([
+        "convert",
+        str(store),
+        "--direction",
+        "manifest_to_materialized",
+    ])
+    to_materialized_out = capsys.readouterr().out
+    strict_check_code = main(["check", str(store), "--strict-stale"])
+
+    assert to_manifest_code == 0
+    assert to_materialized_code == 0
+    assert "direction: manifest_to_materialized" in to_materialized_out
+    assert "manifests_removed: 1" in to_materialized_out
+    assert strict_check_code == 0
+    assert not manifest_path(store, "var").exists()

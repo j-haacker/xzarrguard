@@ -33,6 +33,8 @@ create_store(
 - `no_data_strategy="empty_chunks"`: listed chunks must exist physically.
 - `infer_no_data_from_store=True` is available for in-place metadata updates.
 
+For distributed writes, prefer upstream `dataset.to_zarr(..., write_empty_chunks=True)` during the write phase, then run conversion as a finalization step.
+
 ### In-place metadata update
 
 Use this mode to guard an existing store without rewriting chunk data. Listed
@@ -75,4 +77,19 @@ guarded_to_zarr(
     "/path/to/store.zarr",
     infer_no_data_from_store=True,
 )
+```
+
+## `convert_store`
+
+Convert between two no-data encodings:
+
+- `materialized_to_manifest`: remove all-NaN chunk payloads and record them in manifests.
+- `manifest_to_materialized`: re-materialize missing chunks from manifests and remove manifests.
+- `auto` (default): pick based on whether manifests already exist.
+
+```python
+from xzarrguard import convert_store
+
+report = convert_store("/path/to/store.zarr", direction="auto")
+print(report.direction)
 ```

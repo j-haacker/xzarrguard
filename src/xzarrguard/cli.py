@@ -1,4 +1,4 @@
-"""CLI for checking and creating integrity-aware stores."""
+"""CLI for checking, creating, and converting integrity-aware stores."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 import xarray as xr
 
 from ._version import __version__
-from .create import create_store
+from .create import convert_store, create_store
 from .integrity import check_store
 from .manifest import load_no_data_chunks
 
@@ -49,6 +49,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--infer-no-data-from-store",
         action="store_true",
         help="In in-place mode, derive allowed-missing chunks from currently missing chunks",
+    )
+
+    convert = subparsers.add_parser("convert", help="Convert store materialization mode")
+    convert.add_argument("store_path", help="Path to existing Zarr store")
+    convert.add_argument(
+        "--direction",
+        default="auto",
+        choices=["auto", "materialized_to_manifest", "manifest_to_materialized"],
+        help=(
+            "Conversion direction. auto chooses based on whether manifests exist "
+            "(default: %(default)s)"
+        ),
     )
 
     return parser
@@ -103,7 +115,10 @@ def _run_create(args: argparse.Namespace) -> int:
 
     if args.in_place_metadata_only:
         if args.overwrite:
-            print("error: --overwrite cannot be used with --in-place-metadata-only", file=sys.stderr)
+            print(
+                "error: --overwrite cannot be used with --in-place-metadata-only",
+                file=sys.stderr,
+            )
             return 2
         if args.infer_no_data_from_store and args.no_data:
             print(
@@ -146,7 +161,10 @@ def _run_create(args: argparse.Namespace) -> int:
         return 0
 
     if args.target_store is None:
-        print("error: target_store is required unless --in-place-metadata-only is used", file=sys.stderr)
+        print(
+            "error: target_store is required unless --in-place-metadata-only is used",
+            file=sys.stderr,
+        )
         return 2
 
     dataset = xr.open_zarr(args.source_zarr, consolidated=False)
@@ -169,6 +187,28 @@ def _run_create(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_convert(args: argparse.Namespace) -> int:
+    try:
+        report = convert_store(args.store_path, direction=args.direction)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"converted: {report.store_path}")
+    print(f"direction: {report.direction}")
+    if report.manifests_written:
+        print(f"manifests_written: {len(report.manifests_written)}")
+    if report.manifests_removed:
+        print(f"manifests_removed: {len(report.manifests_removed)}")
+    deleted_count = sum(len(refs) for refs in report.deleted_chunks.values())
+    materialized_count = sum(len(refs) for refs in report.materialized_chunks.values())
+    if deleted_count:
+        print(f"deleted_chunks: {deleted_count}")
+    if materialized_count:
+        print(f"materialized_chunks: {materialized_count}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
 
@@ -179,6 +219,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_check(args)
     if args.command == "create":
         return _run_create(args)
+    if args.command == "convert":
+        return _run_convert(args)
     parser.error(f"unknown command: {args.command}")
     return 2
 
