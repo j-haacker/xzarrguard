@@ -1,10 +1,11 @@
 # xzarrguard
 
-`xzarrguard` provides concise APIs and a CLI to validate completeness of local Zarr v3 stores, create stores with explicit no-data policy, and convert between manifest/materialized no-data representations.
+`xzarrguard` solves the ambiguity of interpreting missing chunk files as `NaN`, and provides concise APIs and a CLI to validate completeness of Zarr v3 stores, create local stores with explicit no-data policy, and convert between manifest/materialized no-data representations.
 
 ## Install
 
 **PyPI**: `pip install xzarrguard`  
+**PyPI + S3 support**: `pip install "xzarrguard[s3]"`  
 **conda**: `conda install xzarrguard`  
 **from source**: `pip install .`  
 
@@ -12,6 +13,14 @@
 
 **uv**: `uvx xzarrguard check /path/to/store.zarr`  
 **pixi**: `pixi exec xzarrguard check /path/to/store.zarr`
+
+Remote `check` uses fsspec backends. For S3-compatible stores:
+
+```bash
+xzarrguard check "s3://example-bucket/path/to/store.zarr" \
+  --profile example-profile \
+  --endpoint-url "https://object-store.example.com"
+```
 
 ## API quickstart
 
@@ -21,6 +30,16 @@ from xzarrguard import check_store, create_store
 report = check_store("store.zarr")
 if report:
     print("store is complete")
+```
+
+```python
+remote_report = check_store(
+    "s3://example-bucket/path/to/store.zarr",
+    storage_options={
+        "profile": "example-profile",
+        "client_kwargs": {"endpoint_url": "https://object-store.example.com"},
+    },
+)
 ```
 
 ```python
@@ -78,6 +97,7 @@ create_store(
 
 ```bash
 xzarrguard check store.zarr
+xzarrguard check "s3://example-bucket/path/to/store.zarr" --profile example-profile --endpoint-url "https://object-store.example.com"
 xzarrguard create source.zarr target.zarr --no-data no_data.json
 xzarrguard create store.zarr --in-place-metadata-only --no-data no_data.json
 xzarrguard create store.zarr --in-place-metadata-only --infer-no-data-from-store

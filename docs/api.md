@@ -15,6 +15,17 @@ if report:
 - `bool(report)` maps to `report.ok`.
 - Supports Zarr v3 stores with either per-node `zarr.json` metadata or root
   `consolidated_metadata`.
+- Remote stores can pass fsspec options via `storage_options`.
+
+```python
+report = check_store(
+    "s3://example-bucket/path/to/store.zarr",
+    storage_options={
+        "profile": "example-profile",
+        "client_kwargs": {"endpoint_url": "https://object-store.example.com"},
+    },
+)
+```
 
 ## `create_store`
 

@@ -7,9 +7,11 @@ xzarrguard check /path/to/store.zarr
 xzarrguard check /path/to/store.zarr --json
 xzarrguard check /path/to/store.zarr --timing
 xzarrguard check /path/to/store.zarr --strict-stale
+xzarrguard check "s3://example-bucket/path/to/store.zarr" --profile example-profile --endpoint-url "https://object-store.example.com"
 ```
 
 `--timing` adds coarse phase timings. With `--json`, timings are included in the JSON payload.
+Remote `check` accepts `--profile`, `--endpoint-url`, and repeatable `--storage-option KEY=VALUE` flags which are forwarded as fsspec storage options.
 
 Exit codes:
 

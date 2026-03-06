@@ -4,6 +4,7 @@ import inspect
 import json
 from pathlib import Path
 
+import fsspec
 import numpy as np
 import pytest
 import xarray as xr
@@ -72,6 +73,68 @@ def _write_source_store(dataset: xr.Dataset, store_path: Path) -> None:
     dataset.to_zarr(**kwargs)
 
 
+def _remote_group_meta(*, metadata: dict[str, dict] | None = None) -> dict:
+    payload: dict[str, object] = {"zarr_format": 3, "node_type": "group", "attributes": {}}
+    if metadata is not None:
+        payload["consolidated_metadata"] = {
+            "kind": "inline",
+            "must_understand": False,
+            "metadata": metadata,
+        }
+    return payload
+
+
+def _remote_array_meta(shape: tuple[int, ...], chunk_shape: tuple[int, ...]) -> dict:
+    return {
+        "zarr_format": 3,
+        "node_type": "array",
+        "shape": list(shape),
+        "chunk_grid": {"name": "regular", "configuration": {"chunk_shape": list(chunk_shape)}},
+        "chunk_key_encoding": {"name": "default", "configuration": {"separator": "/"}},
+    }
+
+
+def _write_remote_memory_store(
+    store_uri: str,
+    *,
+    missing_manifested: list[tuple[int, ...]] | None = None,
+    missing_unexpected: list[tuple[int, ...]] | None = None,
+) -> None:
+    fs = fsspec.filesystem("memory")
+    root = "/" + store_uri.split("://", 1)[1].lstrip("/")
+    if fs.exists(root):
+        fs.rm(root, recursive=True)
+
+    with fs.open(f"{root}/zarr.json", "w") as handle:
+        json.dump(
+            _remote_group_meta(metadata={"var": _remote_array_meta((4, 4), (2, 2))}),
+            handle,
+        )
+
+    missing_manifested = missing_manifested or []
+    missing_unexpected = missing_unexpected or []
+    for coord in ((0, 0), (0, 1), (1, 0), (1, 1)):
+        if coord in missing_manifested or coord in missing_unexpected:
+            continue
+        with fs.open(f"{root}/var/c/{coord[0]}/{coord[1]}", "wb") as handle:
+            handle.write(b"chunk")
+
+    if missing_manifested:
+        with fs.open(f"{root}/.xzarrguard/manifests/var.json", "w") as handle:
+            json.dump(
+                {
+                    "schema_version": 1,
+                    "zarr_format": 3,
+                    "variable": "var",
+                    "allowed_missing": [
+                        {"coord": list(coord), "key": f"c/{coord[0]}/{coord[1]}"}
+                        for coord in missing_manifested
+                    ],
+                },
+                handle,
+            )
+
+
 def test_check_passes_complete_store_without_manifest(tmp_path: Path) -> None:
     store = tmp_path / "store.zarr"
     create_store(_dataset(), store, no_data_strategy="empty_chunks")
@@ -136,6 +199,26 @@ def test_check_passes_when_missing_is_manifested(tmp_path: Path) -> None:
 
     assert report.ok
     assert len(report.variables["var"].missing_allowed) == 1
+
+
+def test_check_remote_memory_store_passes_when_missing_is_manifested() -> None:
+    store_uri = "memory://remote-guarded.zarr"
+    _write_remote_memory_store(store_uri, missing_manifested=[(0, 0)])
+
+    report = check_store(store_uri)
+
+    assert report.ok
+    assert len(report.variables["var"].missing_allowed) == 1
+
+
+def test_check_remote_memory_store_fails_when_missing_is_unexpected() -> None:
+    store_uri = "memory://remote-guarded.zarr"
+    _write_remote_memory_store(store_uri, missing_unexpected=[(1, 1)])
+
+    report = check_store(store_uri)
+
+    assert not report.ok
+    assert any(item.coord == (1, 1) for item in report.variables["var"].missing_unexpected)
 
 
 def test_check_fails_when_missing_not_manifested(tmp_path: Path) -> None:
