@@ -22,6 +22,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+  "fsspec>=2024.9.0",
   "xarray>=2024.9.0",
   "zarr>=3.0.0",
 ]
@@ -36,6 +37,9 @@ Documentation = "https://j-haacker.github.io/xzarrguard/"
 xzarrguard = "xzarrguard.cli:main"
 
 [project.optional-dependencies]
+s3 = [
+  "s3fs>=2024.9.0",
+]
 dev = [
   "build>=1.2.2",
   "pre-commit>=4.0.0",

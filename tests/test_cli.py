@@ -4,6 +4,7 @@ import inspect
 import json
 from pathlib import Path
 
+import fsspec
 import numpy as np
 import pytest
 import xarray as xr
@@ -44,6 +45,57 @@ def _write_source_store(dataset: xr.Dataset, store_path: Path) -> None:
     if "consolidated" in params:
         kwargs["consolidated"] = False
     dataset.to_zarr(**kwargs)
+
+
+def _write_remote_memory_store() -> str:
+    fs = fsspec.filesystem("memory")
+    store_uri = "memory://cli-remote-store.zarr"
+    root = "/cli-remote-store.zarr"
+    if fs.exists(root):
+        fs.rm(root, recursive=True)
+
+    with fs.open(f"{root}/zarr.json", "w") as handle:
+        json.dump(
+            {
+                "zarr_format": 3,
+                "node_type": "group",
+                "attributes": {},
+                "consolidated_metadata": {
+                    "kind": "inline",
+                    "must_understand": False,
+                    "metadata": {
+                        "var": {
+                            "zarr_format": 3,
+                            "node_type": "array",
+                            "shape": [4, 4],
+                            "chunk_grid": {
+                                "name": "regular",
+                                "configuration": {"chunk_shape": [2, 2]},
+                            },
+                            "chunk_key_encoding": {
+                                "name": "default",
+                                "configuration": {"separator": "/"},
+                            },
+                        }
+                    },
+                },
+            },
+            handle,
+        )
+    for coord in ((0, 1), (1, 0), (1, 1)):
+        with fs.open(f"{root}/var/c/{coord[0]}/{coord[1]}", "wb") as handle:
+            handle.write(b"chunk")
+    with fs.open(f"{root}/.xzarrguard/manifests/var.json", "w") as handle:
+        json.dump(
+            {
+                "schema_version": 1,
+                "zarr_format": 3,
+                "variable": "var",
+                "allowed_missing": [{"coord": [0, 0], "key": "c/0/0"}],
+            },
+            handle,
+        )
+    return store_uri
 
 
 def test_cli_check_exit_code_success(tmp_path: Path, capsys) -> None:
@@ -114,6 +166,24 @@ def test_cli_check_json_output_with_timing(tmp_path: Path, capsys) -> None:
     assert code == 0
     assert payload["ok"] is True
     assert payload["timing"]["exists_calls"] > 0
+
+
+def test_cli_check_remote_memory_store(capsys) -> None:
+    store_uri = _write_remote_memory_store()
+
+    code = main(["check", store_uri])
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "PASS" in out
+
+
+def test_cli_check_rejects_invalid_storage_option(capsys) -> None:
+    code = main(["check", "memory://cli-remote-store.zarr", "--storage-option", "bad-option"])
+    err = capsys.readouterr().err
+
+    assert code == 2
+    assert "Invalid --storage-option value" in err
 
 
 def test_cli_create_then_check_roundtrip(tmp_path: Path, capsys) -> None:
