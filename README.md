@@ -2,6 +2,9 @@
 
 `xzarrguard` solves the ambiguity of interpreting missing chunk files as `NaN`, and provides concise APIs and a CLI to validate completeness of Zarr v3 stores, create local stores with explicit no-data policy, and convert between manifest/materialized no-data representations.
 
+> [!NOTE]
+> Since xarray v2025.09.1, no-data values are preserved during writing for floats. Zarr stores produced by this or newer versions will reliably translate missing chunks to NaN.
+
 ## Install
 
 **PyPI**: `pip install xzarrguard`  
